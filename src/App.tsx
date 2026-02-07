@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
 
 function Dashboard() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {

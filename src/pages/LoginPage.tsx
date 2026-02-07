@@ -7,7 +7,7 @@ import {
   Image as ImageIcon,
   Camera,
 } from "lucide-react";
-import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 
 export const LoginPage: React.FC = () => {
   const { loginViaQR } = useAuth();
@@ -124,30 +124,62 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (showScanner) {
-      const scanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        /* verbose= */ false,
-      );
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
-      scanner.render(
-        (decodedText) => {
-          loginViaQR(decodedText);
-          scanner.clear();
-          setShowScanner(false);
-        },
-        () => {
-          // Handle scan errors silently
-        },
-      );
-
-      return () => {
-        scanner.clear();
-      };
+  const stopScanner = useCallback(async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        if (html5QrCodeRef.current.isScanning) {
+          await html5QrCodeRef.current.stop();
+        }
+        html5QrCodeRef.current.clear();
+      } catch (err) {
+        console.error("Error stopping scanner:", err);
+      }
+      html5QrCodeRef.current = null;
     }
-  }, [showScanner, loginViaQR]);
+    setShowScanner(false);
+  }, []);
+
+  const startScanner = useCallback(async () => {
+    setShowScanner(true);
+    setError(null);
+
+    // Wait for the DOM element to be available
+    setTimeout(async () => {
+      try {
+        const html5QrCode = new Html5Qrcode("reader");
+        html5QrCodeRef.current = html5QrCode;
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            loginViaQR(decodedText);
+            stopScanner();
+          },
+          () => {
+            // Silently handle scan errors
+          },
+        );
+      } catch (err: any) {
+        console.error("Camera Start Error:", err);
+        setError("تعذر تشغيل الكاميرا. يرجى التأكد من منح الإذن.");
+        setShowScanner(false);
+      }
+    }, 100);
+  }, [loginViaQR, stopScanner]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (html5QrCodeRef.current?.isScanning) {
+        html5QrCodeRef.current.stop();
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -202,7 +234,7 @@ export const LoginPage: React.FC = () => {
             {/* Scan via Camera */}
             <button
               type="button"
-              onClick={() => setShowScanner(true)}
+              onClick={startScanner}
               className="w-full flex items-center gap-4 p-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98] group"
             >
               <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
@@ -263,13 +295,22 @@ export const LoginPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            <div
-              id="reader"
-              className="overflow-hidden rounded-xl border border-zinc-800 bg-black"
-            ></div>
+            <div className="relative aspect-square overflow-hidden rounded-xl border-2 border-blue-600/30 bg-black">
+              <div id="reader" className="w-full h-full"></div>
+              {/* Overlays for scanner feel */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 border-40 border-black/40"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-blue-500/50 rounded-lg">
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-blue-500"></div>
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-blue-500"></div>
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-blue-500"></div>
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-blue-500"></div>
+                </div>
+              </div>
+            </div>
             <button
-              onClick={() => setShowScanner(false)}
-              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-3 rounded-xl transition-colors font-medium"
+              onClick={stopScanner}
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-3 rounded-xl transition-colors font-medium border border-zinc-700"
             >
               إلغاء المسح
             </button>
