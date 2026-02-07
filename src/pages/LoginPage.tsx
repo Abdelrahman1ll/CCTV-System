@@ -151,10 +151,15 @@ export const LoginPage: React.FC = () => {
         const html5QrCode = new Html5Qrcode("reader");
         html5QrCodeRef.current = html5QrCode;
 
-        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        const config = { fps: 20, qrbox: { width: 250, height: 250 } };
 
         await html5QrCode.start(
-          { facingMode: "environment" },
+          {
+            facingMode: "environment",
+            aspectRatio: 1.0,
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 640, ideal: 1280, max: 1920 },
+          },
           config,
           (decodedText) => {
             loginViaQR(decodedText);
